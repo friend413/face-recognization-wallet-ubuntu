@@ -1,0 +1,134 @@
+<html>
+<head>
+  <title>AnonID Face Recognition</title>
+  <script src="https://unpkg.com/lodash@4/lodash.min.js"></script>
+  <script src="https://unpkg.com/lowdb@0.17/dist/low.min.js"></script>
+  <script src="https://unpkg.com/lowdb@0.17/dist/LocalStorage.min.js"></script>
+  <script src="../static/js/renderjson.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="../static/js/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/pnotify/3.2.1/pnotify.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/pnotify/3.2.1/pnotify.brighttheme.css">
+</head>
+<body>
+  <div style="width: 100%; height: 100%;">
+    <div class="row" style="height: 20px;"></div>
+    <div style="text-align: center;">
+    <div style="font-size: 24px; margin: 0 auto; background: #0000FF; color: #fff;">2nd ANONID feature vector for future matching.</div>
+	</div>
+    <div class="row" style="height: 30px;"></div>
+    <div class="row">
+      <div class="col-md-auto" style="width: 50px; "></div>
+      <div class="col-md-auto" style="width: 640px; ">
+        <div class="row justify-content-md-center">
+          <div id="vid_container" >
+            <video onloadedmetadata="onPlay(this)" id="inputVideo" style="width: 640px; height: 480px; z-index: 1; background-color: #808080;-webkit-transform: scaleX(-1);transform: scaleX(-1);" autoplay muted playsinline></video>
+          </div>
+          <div style="position: absolute; z-index: 2; ">
+            <canvas id="overlay" style="width: 640px; height: 480px;-webkit-transform: scaleX(-1);transform: scaleX(-1);"/>
+            <canvas id="capture" />
+          </div>
+          <div id="face_ani" style="position: absolute; z-index: 3; width: 640px; height: 480px; opacity: 0.4;">
+          </div>
+        </div>
+        <div class="row align-items-center" style=" height: 150px;">
+          <div class="container" style="width: 450px;">
+            <div class="row justify-content-md-center">
+              <div class="col-lg-4 text-center">
+                <button class="btn btn-primary" onclick="javascript:enrollUser()">Enroll</button>
+              </div>
+              <div class="col-lg-4 text-center">
+                <button class="btn btn-success" onclick="javascript:verifyUser()">Verify</button>
+              </div>
+              <div class="col-lg-4 text-center">
+                <button class="btn btn-success" style="width: 150px" onclick="javascript:verifyUserwithName()">Verify with Name</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row align-items-center" style="height: 100px;">
+          <div class="col text-right">
+            <p id="result_text1" style="font-size:50px; color: black;"></p>
+          </div>
+          <div class="col text-left">
+            <p id="result_text2" style="font-size:50px; color: black;"></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-auto" style="width: 50px; ">
+      </div>
+      <div class="col-md-auto" style="width: 400px; ">
+        <h3>User List</h3>
+        <div class="row" >
+          <ul id="userlist">
+          </ul>
+        </div>
+        <div class="row align-items-center" style="height: 120px;">
+          <div class="container" style="width: 400px;">
+            <div class="row justify-content-md-center">
+              <div class="col-sm-4">
+                <button class="btn btn-warning" onclick="javascript:removeSelectedUser()">Remove User</button>
+              </div>
+              <div class="col-sm-4">
+                <button class="btn btn-danger" onclick="javascript:clearUsers()">Remove All User</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-auto" style="width: 400px; ">
+        <h3>ID OCR</h3>
+        <div class="row">
+          <img id="id_img" style="width: 480px; height: 320px;"></img>          
+          <div>
+            <div class="col-lg-4 text-center">
+              <input type="file" id="uploadFile" class="btn btn-primary" onchange="javascript:idocr()"/>
+            </div>
+          </div>
+          <div id="json-output">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pnotify/3.2.1/pnotify.js"></script>
+  	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@9"></script>
+  <script type="text/javascript" src="../static/js/main.js"></script>
+  <script type="text/javascript" src="../static/js/face-api.min.js"></script>
+  <script src="../static/js/bodymovin.js" type="text/javascript"></script>
+
+    <script>
+      function isMobile() {
+        let check = false;
+        (function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
+        return check;
+      }
+
+      function load() {
+        if(isMobile()) {
+          document.getElementById("inputVideo").style.width = '480px'
+          document.getElementById("inputVideo").style.height = '640px'
+
+          document.getElementById("overlay").style.width = '480px'
+          document.getElementById("overlay").style.height = '640px'
+
+          document.getElementById("face_ani").style.width = '480px'
+          document.getElementById("face_ani").style.height = '640px'
+        } else {
+          document.getElementById("inputVideo").style.width = '640px'
+          document.getElementById("inputVideo").style.height = '480px'
+
+          document.getElementById("overlay").style.width = '640px'
+          document.getElementById("overlay").style.height = '480px'
+
+          document.getElementById("face_ani").style.width = '640px'
+          document.getElementById("face_ani").style.height = '480px'
+        }
+      }
+      window.onload = load;
+    </script>
+</body>
+</html>
