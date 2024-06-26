@@ -5,17 +5,19 @@ import base64
 import FaceManage.manage as db_manage
 from flask import Flask, render_template, request, jsonify
 import base64
+import requests
 import logging
 import uuid
 from flask_cors import CORS
-
+from dotenv import load_dotenv
 from face import InitFaceSDK, GetLivenessInfo, GetFeatureInfo
 from idocr import InitIDOCRSDK, GetIDOCRInfo
 
+load_dotenv()
 ret = InitFaceSDK()
 print('Init Face Engine', ret)
-ret = InitIDOCRSDK()
-print('Init IDOCR Engine', ret)
+# ret = InitIDOCRSDK()
+# print('Init IDOCR Engine', ret)
 
 app = Flask(__name__)
 CORS(app)
@@ -26,12 +28,16 @@ db_manage.open_database(0)
 def home():
     return render_template('index.html')
 
-@app.route("/enroll_user", methods=['POST'])
+@app.route("/create_wallet", methods=['POST'])
 def enroll_user():
     content = request.get_json()
+    print(" =================== Enrol User =================== ")
     imageBase64 = content['image'][22:]
     image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
     box, liveness, result = GetLivenessInfo(image)
+    address = ""
+    msg = ""
+    token = ""
 
     if liveness == 1:
         idx = 0
@@ -43,22 +49,37 @@ def enroll_user():
         else:
             box, liveness, feature = GetFeatureInfo(image)
 
-            id = db_manage.register_face(content['name'], feature, content['customer'])
+            id, face_score, address, token = db_manage.find_face(feature)
             print("<<<<<<<<<<<<<<<<<<<<<<<<User is Existing id is ", id)
-            if id == -1:
+            if id >= 0:
                 result = 'Already Exist'
-            elif id == -2:
-                result = 'Email Used'
             else:
-                result = 'Enroll OK'
+                rust_server_url = os.getenv('RUST_SERVER_URL', 'http://localhost:8799')
 
+                payload = {
+                    "uid": id + 1
+                }
+                # send request to rust server
+                try:
+                    ret = requests.post(rust_server_url + '/create_wallet', json=payload)
+                    ret.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
 
-    response = jsonify({"status": result})
+                    address = ret.json().get('wallet_address')
+                    result = ret.json().get('result')
+                    msg = ret.json().get('msg')
+                    token = ret.json().get('token')
+                    db_manage.register(id + 1, "", feature, address, "", token)
+
+                except requests.exceptions.RequestException as e:
+                    result = "Error"
+                    msg = "Rust backend: " + str(e)
+
+    response = jsonify({"status": result, "msg": msg, "wallet_address": address, "token": token})
     response.status_code = 200
     response.headers["Content-Type"] = "application/json; charset=utf-8"
     return response
 
-@app.route("/verify_user", methods=['POST'])
+@app.route("/get_wallet", methods=['POST'])
 def verify_user():
     content = request.get_json()
     imageBase64 = content['image'][22:]
@@ -66,10 +87,10 @@ def verify_user():
 
     box, liveness, result = GetLivenessInfo(image)
 
-    result = 'Verify Failed'
-    name = ''
+    result = 'Error'
+    msg = ''
     face_score = 0
-    admin = 0
+    token = ''
 
     if liveness == 1:
         face_width = box[2] - box[0]
@@ -80,13 +101,15 @@ def verify_user():
             result = 'Go Back'
         else:
             box, liveness, feature = GetFeatureInfo(image)
-            id, fname, face_score, admin = db_manage.verify_face(feature, content['customer'])
+            id, face_score, address, token = db_manage.find_face(feature)
             if id >= 0:
-                result, name = 'Verify OK', fname
-            if id == -2:
-                result = 'No Users'
+                result = 'Success'
+                msg = 'Got wallet successfully'
+            else:
+                result = 'Error'
+                msg = 'Unregistered user'
 
-    response = jsonify({"status": result, "name": name, "liveness": str(liveness), "matching": str(face_score), "admin": str(admin)})
+    response = jsonify({"status": result, "msg": msg, "token": token, "liveness": str(liveness), "matching": str(face_score), "address": address})
     response.status_code = 200
     response.headers["Content-Type"] = "application/json; charset=utf-8"
     return response

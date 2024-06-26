@@ -3,13 +3,12 @@ import sys
 import os
 import os.path
 import numpy as np
-
 from face import GetFaceSimilarity
 
 database_base_name = 'users'
 table_name = "feature"
-sqlite_insert_blob_query = "INSERT INTO " + table_name + " (id, name, features, customer, admin) VALUES (?, ?, ?, ?, ?)"
-sqlite_create_table_query = "CREATE TABLE " + table_name + " ( id INTEGER PRIMARY KEY, name TEXT, features BLOB NOT NULL, customer VARCHAR, admin BOOLEAN)"
+sqlite_insert_blob_query = "INSERT INTO " + table_name + " (id, name, features, customer, admin, wallet_address, token) VALUES (?, ?, ?, ?, ?, ?, ?)"
+sqlite_create_table_query = "CREATE TABLE " + table_name + " ( id INTEGER PRIMARY KEY, name TEXT, features BLOB NOT NULL, customer VARCHAR, admin BOOLEAN, wallet_address VARCHAR, token VARCHAR)"
 
 sqlite_update_all_query = "UPDATE " + table_name + " set name = ?, features = ? where id = ?"
 sqlite_search_query = "SELECT * FROM " + table_name
@@ -85,6 +84,46 @@ def clear_database(custId):
     cursor.close()
     return
 
+def find_face(feat):
+    global max_id
+
+    data_all = get_all_data()
+
+    if len(data_all) == 0:
+        return -2, None, None
+    find_id, find_wallet, token = -1, None, None
+    for data in data_all:
+        id, features, wallet_address, token = data
+
+        score = GetFaceSimilarity(feat, features) 
+        if score >= max_score:
+            max_score = score
+            find_id = id
+            find_wallet = wallet_address
+
+    if max_score >= MATCHING_THRES:
+        print("score = ", max_score)
+
+    return find_id, max_score, find_wallet, token
+
+def register(id, name, feature, address, customer, token):
+    # Register a new entry in the database
+    global face_database
+
+    try:
+        cursor = face_database.cursor()
+
+        cursor.execute(sqlite_insert_blob_query, (id, name, feature.tostring(), customer, 0, address, token))
+        face_database.commit()
+
+        print(f"Entry for {address} has been registered successfully.")
+        cursor.close()
+        return 1
+    except Exception as e:
+        print(f"Error: '{e}' occurred.")
+        cursor.close()
+        return 0
+    
 def register_face(name, features, customer):
     id, _, _, _ = verify_face(features, customer)
     if id >= 0:
@@ -233,3 +272,16 @@ def set_threshold(th):
 
 def get_threshold():
     return threshold
+
+def get_all_data():
+    global face_database, table_name
+    try:
+        cursor = face_database.cursor()
+        query = f"SELECT id, features, wallet_address, token FROM {table_name} WHERE 1"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        cursor.close()
+        return rows
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
