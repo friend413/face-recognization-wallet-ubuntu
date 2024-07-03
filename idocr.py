@@ -4,6 +4,7 @@ from FaceOnLive_id.ocrengine.ocrengine import TTVOcrGetHWID, TTVOcrSetActivation
 , TTVOcrInit, TTVOcrProcess, TTVOcrCreditCard, TTVOcrBarCode, ttv_if_checker
 
 def InitIDOCRSDK():
+    print("InitIDOCRSDK")
     ocrHWID = TTVOcrGetHWID()
     licenseKey = "KIYOT-NBHQV-MDDYN-QOYIV"
     ocrRet = TTVOcrSetActivation(licenseKey.encode('utf-8'))
