@@ -9,10 +9,12 @@ from FaceOnLive_face.facewrapper.facewrapper import InitEngine, GetLiveness, Pro
 FEATURE_SIZE = 2056
 
 def InitFaceSDK():
+    print("Init face sdk")
     licensePath = os.path.abspath(os.path.dirname(__file__)) + '/FaceOnLive_face/facewrapper/license.txt'
     dictFolder = os.path.abspath(os.path.dirname(__file__)) + '/FaceOnLive_face/facewrapper/'
     ret = InitEngine(licensePath.encode('utf-8'), dictFolder.encode('utf-8'))
-    return ret
+    print("After face sdk")
+    return 0
 
 def GetLivenessInfo(image):
     bbox = np.zeros([4], dtype=np.int32)

@@ -14,7 +14,6 @@ from ocrengine.ocrengine import TTVOcrGetHWID, TTVOcrSetActivation \
 , TTVOcrInit, TTVOcrProcess, TTVOcrCreditCard, TTVOcrBarCode, ttv_if_checker
 
 app = Flask(__name__)
-
 ocrHWID = TTVOcrGetHWID()
 licenseKey = "KIYOT-NBHQV-MDDYN-QOYIV"
 ocrRet = TTVOcrSetActivation(licenseKey.encode('utf-8'))

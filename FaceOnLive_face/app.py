@@ -26,6 +26,7 @@ CUSTOMER_TOKENS = [
 app = Flask(__name__)
 CORS(app)
 
+print("licensePath")
 licensePath = os.path.abspath(os.path.dirname(__file__)) + '/facewrapper/license.txt'
 InitEngine(licensePath.encode('utf-8'))
 
