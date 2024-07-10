@@ -62,4 +62,8 @@ def GetFeatureInfo(image1):
     return bbox1, liveness1[0], feature1
 
 def GetFaceSimilarity(feat1, feat2):
+    print(" \nttttttttyyyyyyyyyypppppppppppppeeeeeeeeeeeeeeeee -------------")
+    print(type(feat1))
+    print(type(feat2))
+    print(" ------------- ttttttttyyyyyyyyyypppppppppppppeeeeeeeeeeeeeeeee\n")
     return CompareFace(feat1, FEATURE_SIZE, feat2, FEATURE_SIZE)
