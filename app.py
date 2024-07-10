@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import base64
 import FaceManage.manage as db_manage
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import base64
 import requests
 import logging
@@ -19,14 +19,22 @@ print('Init Face Engine', ret)
 # ret = InitIDOCRSDK()
 # print('Init IDOCR Engine', ret)
 
-app = Flask(__name__)
+# app = Flask(__name__)
+app = Flask(__name__, static_folder='wallet')
 CORS(app)
 
 db_manage.open_database(0)
 
 @app.route('/')
-def home():
-    return render_template('index.html')
+def serve():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def static_proxy(path):
+    return send_from_directory(app.static_folder, path)
+# @app.route('/')
+# def home():
+#     return render_template('index.html')
 
 @app.route("/create_wallet", methods=['POST'])
 def enroll_user():
@@ -34,6 +42,7 @@ def enroll_user():
     print(" =================== Enrol User =================== ")
     imageBase64 = content['image'][22:]
     image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
+    # return imageBase64
     box, liveness, result = GetLivenessInfo(image)
     address = ""
     msg = ""
@@ -49,7 +58,9 @@ def enroll_user():
         else:
             box, liveness, feature = GetFeatureInfo(image)
 
-            id, face_score, address, token = db_manage.find_face(feature)
+            print(" -------------------- Before find face {} {}", feature, type(feature))
+            id, address, token = db_manage.find_face(feature)
+            print(" -------------------- After find face {} {} {}", id, address, token)
             print("<<<<<<<<<<<<<<<<<<<<<<<<User is Existing id is ", id)
             if id >= 0:
                 result = 'Already Exist'
@@ -91,6 +102,8 @@ def verify_user():
     msg = ''
     face_score = 0
     token = ''
+    address = ''
+    id = 0
 
     if liveness == 1:
         face_width = box[2] - box[0]
@@ -101,7 +114,9 @@ def verify_user():
             result = 'Go Back'
         else:
             box, liveness, feature = GetFeatureInfo(image)
-            id, face_score, address, token = db_manage.find_face(feature)
+            print("----------->>>>>>>>>>>>>>> get wallet 1")
+            id, address, token = db_manage.find_face(feature)
+            print("----------->>>>>>>>>>>>>>> get wallet 2 {}", id, address)
             if id >= 0:
                 result = 'Success'
                 msg = 'Got wallet successfully'
@@ -109,7 +124,7 @@ def verify_user():
                 result = 'Error'
                 msg = 'Unregistered user'
 
-    response = jsonify({"status": result, "msg": msg, "token": token, "liveness": str(liveness), "matching": str(face_score), "address": address})
+    response = jsonify({"status": result, "msg": msg, "token": token, "liveness": str(liveness), "matching": "score", "address": address})
     response.status_code = 200
     response.headers["Content-Type"] = "application/json; charset=utf-8"
     return response

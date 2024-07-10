@@ -86,16 +86,17 @@ def clear_database(custId):
 
 def find_face(feat):
     global max_id
-
+    print(" ******************** Find Face Func ")
     data_all = get_all_data()
 
     if len(data_all) == 0:
         return -2, None, None
-    find_id, find_wallet, token = -1, None, None
+    find_id, max_score, find_wallet, token = -1, 0, None, None
     for data in data_all:
         id, features, wallet_address, token = data
-
-        score = GetFaceSimilarity(feat, features) 
+        print("-----((((())))) db features {} {}", features, type(features))
+        converted_feature = np.frombuffer(features, dtype=np.uint8)
+        score = GetFaceSimilarity(feat, converted_feature) 
         if score >= max_score:
             max_score = score
             find_id = id
@@ -103,8 +104,8 @@ def find_face(feat):
 
     if max_score >= MATCHING_THRES:
         print("score = ", max_score)
-
-    return find_id, max_score, find_wallet, token
+    print(" ******************** Find Face Func {} {} {}", find_id, find_wallet, token)
+    return find_id, find_wallet, token
 
 def register(id, name, feature, address, customer, token):
     # Register a new entry in the database
@@ -113,7 +114,7 @@ def register(id, name, feature, address, customer, token):
     try:
         cursor = face_database.cursor()
 
-        cursor.execute(sqlite_insert_blob_query, (id, name, feature.tostring(), customer, 0, address, token))
+        cursor.execute(sqlite_insert_blob_query, (id, name, np.frombuffer(feature, dtype=np.uint8).tostring(), customer, 0, address, token))
         face_database.commit()
 
         print(f"Entry for {address} has been registered successfully.")

@@ -1,5 +1,0 @@
-#!/bin/sh
-for email in `cat ./email-list.dat`
-do
-echo -n \""$email\"",
-done
