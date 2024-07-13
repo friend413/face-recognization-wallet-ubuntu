@@ -38,96 +38,124 @@ def static_proxy(path):
 
 @app.route("/create_wallet", methods=['POST'])
 def enroll_user():
-    content = request.get_json()
-    print(" =================== Enrol User =================== ")
-    imageBase64 = content['image'][22:]
-    image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
-    # return imageBase64
-    box, liveness, result = GetLivenessInfo(image)
-    address = ""
-    msg = ""
-    token = ""
+    try:
+        content = request.get_json()
+        print(" =================== Enrol User =================== ")
+        imageBase64 = content['image'][22:]
+        image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
+        # return imageBase64
+        box, liveness, result = GetLivenessInfo(image)
+        address = ""
+        msg = ""
+        token = ""
 
-    if liveness == 1:
-        idx = 0
-        face_width = box[2] - box[0]
-        if face_width < 150:
-            result = 'Move Closer'
-        elif face_width > 210:
-            result = 'Go Back'
-        else:
-            box, liveness, feature = GetFeatureInfo(image)
-
-            print(" -------------------- Before find face {} {}", feature, type(feature))
-            id, address, token = db_manage.find_face(feature)
-            print(" -------------------- After find face {} {} {}", id, address, token)
-            print("<<<<<<<<<<<<<<<<<<<<<<<<User is Existing id is ", id)
-            if id >= 0:
-                result = 'Already Exist'
+        if liveness == 1:
+            face_width = box[2] - box[0]
+            if face_width < 150:
+                result = 'Move Closer'
+            elif face_width > 210:
+                result = 'Go Back'
             else:
-                rust_server_url = os.getenv('RUST_SERVER_URL', 'http://localhost:8799')
+                box, liveness, feature = GetFeatureInfo(image)
 
-                payload = {
-                    "uid": id + 1
-                }
-                # send request to rust server
-                try:
-                    ret = requests.post(rust_server_url + '/create_wallet', json=payload)
-                    ret.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+                print(" -------------------- Before find face {} {}", feature, type(feature))
+                id, address, token, count = db_manage.find_face(feature)
+                print(" -------------------- After find face {} {} {}", id, address, token)
+                print("<<<<<<<<<<<<<<<<<<<<<<<<User is Existing id is ", id)
+                if id >= 0:
+                    result = 'Already Exist'
+                else:
+                    rust_server_url = os.getenv('RUST_SERVER_URL', 'http://localhost:8799')
 
-                    address = ret.json().get('wallet_address')
-                    result = ret.json().get('result')
-                    msg = ret.json().get('msg')
-                    token = ret.json().get('token')
-                    db_manage.register(id + 1, "", feature, address, "", token)
+                    payload = {
+                        "uid": count
+                    }
+                    # send request to rust server
+                    try:
+                        ret = requests.post(rust_server_url + '/create_wallet', json=payload)
+                        ret.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
 
-                except requests.exceptions.RequestException as e:
-                    result = "Error"
-                    msg = "Rust backend: " + str(e)
+                        address = ret.json().get('wallet_address')
+                        result = ret.json().get('result')
+                        msg = ret.json().get('msg')
+                        token = ret.json().get('token')
+                        db_manage.register(count, "", feature, address, "", token)
 
-    response = jsonify({"status": result, "msg": msg, "wallet_address": address, "token": token})
-    response.status_code = 200
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
-    return response
+                    except requests.exceptions.RequestException as e:
+                        result = "Error"
+                        msg = "Rust backend: " + str(e)
+
+        response = jsonify({"status": result, "msg": msg, "wallet_address": address, "token": token})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
+    except KeyError:
+        print("Key 'image' not found in the JSON content.")
+        response = jsonify({"status": "Error", "msg": "Key 'image' not found in the JSON content.", "token": "", "liveness": "", "matching": "score", "address": ""})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        response = jsonify({"status": "Error", "msg": "An error occurred: {e}. Please reload site", "token": "", "liveness": "", "matching": "score", "address": ""})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
 
 @app.route("/get_wallet", methods=['POST'])
 def verify_user():
-    content = request.get_json()
-    imageBase64 = content['image'][22:]
-    image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
+    try:
+        content = request.get_json()
+        imageBase64 = content['image'][22:]
+        image = cv2.imdecode(np.frombuffer(base64.b64decode(imageBase64), dtype=np.uint8), cv2.IMREAD_COLOR)
 
-    box, liveness, result = GetLivenessInfo(image)
+        box, liveness, result = GetLivenessInfo(image)
 
-    result = 'Error'
-    msg = ''
-    face_score = 0
-    token = ''
-    address = ''
-    id = 0
+        result = 'Error'
+        msg = ''
+        face_score = 0
+        token = ''
+        address = ''
+        id = -1
 
-    if liveness == 1:
-        face_width = box[2] - box[0]
-        print('>>>>>>>>>> Face Width', box[0], face_width)
-        if face_width < 150:
-            result = 'Move Closer'
-        elif face_width > 210:
-            result = 'Go Back'
-        else:
-            box, liveness, feature = GetFeatureInfo(image)
-            print("----------->>>>>>>>>>>>>>> get wallet 1")
-            id, address, token = db_manage.find_face(feature)
-            print("----------->>>>>>>>>>>>>>> get wallet 2 {}", id, address)
-            if id >= 0:
-                result = 'Success'
-                msg = 'Got wallet successfully'
+        if liveness == 1:
+            face_width = box[2] - box[0]
+            print('>>>>>>>>>> Face Width', box[0], face_width)
+            if face_width < 150:
+                result = 'Move Closer'
+            elif face_width > 210:
+                result = 'Go Back'
             else:
-                result = 'Error'
-                msg = 'Unregistered user'
+                box, liveness, feature = GetFeatureInfo(image)
+                print("----------->>>>>>>>>>>>>>> get wallet 1")
+                id, address, token, count = db_manage.find_face(feature)
+                print("----------->>>>>>>>>>>>>>> get wallet 2 {} {} {}", id, address, count)
+                if id >= 0:
+                    result = 'Success'
+                    msg = 'Got wallet successfully'
+                else:
+                    print(" ****************** here ************ {}", id)
+                    result = 'No Users'
+                    msg = 'Unregistered user'
 
-    response = jsonify({"status": result, "msg": msg, "token": token, "liveness": str(liveness), "matching": "score", "address": address})
-    response.status_code = 200
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
-    return response
+        response = jsonify({"status": result, "msg": msg, "token": token, "liveness": str(liveness), "matching": "score", "address": address})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
+    except KeyError:
+        print("Key 'image' not found in the JSON content.")
+        response = jsonify({"status": "Error", "msg": "Key 'image' not found in the JSON content.", "token": "", "liveness": "", "matching": "score", "address": ""})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        response = jsonify({"status": "Error", "msg": "An error occurred: {e}. Please reload site", "token": "", "liveness": "", "matching": "score", "address": ""})
+        response.status_code = 200
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
+
+    
 
 @app.route("/remove_user_by_face", methods=['POST'])
 def remove_user_by_face():
