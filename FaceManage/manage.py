@@ -8,7 +8,7 @@ from face import GetFaceSimilarity
 database_base_name = 'users'
 table_name = "feature"
 sqlite_insert_blob_query = "INSERT INTO " + table_name + " (id, name, features, customer, admin, wallet_address, token) VALUES (?, ?, ?, ?, ?, ?, ?)"
-sqlite_create_table_query = "CREATE TABLE " + table_name + " ( id INTEGER PRIMARY KEY, name TEXT, features BLOB NOT NULL, customer VARCHAR, admin BOOLEAN, wallet_address VARCHAR, token VARCHAR)"
+sqlite_create_table_query = "CREATE TABLE " + table_name + " ( id INTEGER, name TEXT, features BLOB NOT NULL, customer VARCHAR, admin BOOLEAN, wallet_address VARCHAR, token VARCHAR)"
 
 sqlite_update_all_query = "UPDATE " + table_name + " set name = ?, features = ? where id = ?"
 sqlite_search_query = "SELECT * FROM " + table_name
@@ -19,7 +19,7 @@ sqlite_delete_id = "DELETE FROM " + table_name + " where id = ?"
 sqlite_search_name = "SELECT count(*) FROM " + table_name + " where name = ?"
 
 data_all = []
-MATCHING_THRES = 0.91
+MATCHING_THRES = 0.95
 FEATURE_SIZE = 2056
 max_id = -1
 
@@ -89,8 +89,9 @@ def find_face(feat):
     print(" ******************** Find Face Func ")
     data_all = get_all_data()
 
-    if len(data_all) == 0:
-        return -2, None, None
+    count = len(data_all)
+    if count == 0:
+        return -1, None, None, 0
     find_id, max_score, find_wallet, token = -1, 0, None, None
     for data in data_all:
         id, features, wallet_address, token = data
@@ -104,8 +105,10 @@ def find_face(feat):
 
     if max_score >= MATCHING_THRES:
         print("score = ", max_score)
+    else: 
+        find_id = -1
     print(" ******************** Find Face Func {} {} {}", find_id, find_wallet, token)
-    return find_id, find_wallet, token
+    return find_id, find_wallet, token, count
 
 def register(id, name, feature, address, customer, token):
     # Register a new entry in the database
